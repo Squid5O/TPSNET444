@@ -130,6 +130,7 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	int32 maxBulletCount = 21;
 
+	UPROPERTY(Replicated)
 	int32 bulletCount = maxBulletCount;
 
 	UPROPERTY( EditAnywhere , BlueprintReadOnly , Category = Input )
@@ -188,6 +189,32 @@ public:
 	//서버2멀티 모두 총을 놓으세요 (총액의 포인터)
 	UFUNCTION( NetMulticast , Reliable )	//WithValidation 추가해서 보안 효과 추가 가능
 	void MultiDetachPistol( AActor* pistol );
+
+	//사용자가 총을 쏘면
+	// 서버에게 총을 쏴 달라고 하고 싶다.
+	//서버에서 라인을 그려서 부딪힌것이 있다면
+	// 그 정보를 모든 클라이언트에게 보내서 총쏘리 처리를 하고 싶다.
+
+	UFUNCTION(Server, Reliable)
+	void ServerFire();
+
+	UFUNCTION( NetMulticast , Reliable )
+	void MultiFire(bool bHit, const FHitResult&hitinfo);
+
+	//클라2서버 재장전 애니메이션을 요청
+	UFUNCTION(Server, Reliable)
+	void ServerReload();
+	//서버2멀티 재장전 애니메이션 해라
+	UFUNCTION(NetMulticast, Reliable)
+	void MultiReload();
+
+	//initAmmo가 불리면
+	UFUNCTION( Server , Reliable )
+	void ServerInitAmmo();
+	//클라2 서버 initAmmo를 해주세요
+	UFUNCTION( NetMulticast , Reliable )
+	void MultiInitAmmo();
+	//서버2 멀티 initAmmo를 해라
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };

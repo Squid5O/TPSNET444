@@ -70,6 +70,8 @@ void UNetPlayerAnimInstance::AnimNotify_OnReloadFinished()
 	// 캐릭터에게 실제로 총알을 채워라 라고 하고싶다.
 	if (nullptr == player)
 		return;
+	//서버에 InitAmmo를 해달라고 요청해야 한다/
+//	player->InitAmmo();
 
-	player->InitAmmo();
+	player->ServerInitAmmo();
 }

@@ -249,8 +249,70 @@ void ANetTPSCDCharacter::Fire( const FInputActionValue& Value )
 	if (isReload)
 		return;
 
+	ServerFire();
+
+	//// 1개 차감하고
+	//bulletCount--;
+	//// 총알UI를 갱신하고싶다.
+	//if (mainUI)
+	//{
+	//	mainUI->RemoveBulletUI( bulletCount );
+	//}
+
+	//// UNetPlayerAnimInstance::PlayerFireAnimation를 호출하고싶다.
+	//// 1. UNetPlayerAnimInstance를 가져오고싶다.
+	//auto anim = Cast<UNetPlayerAnimInstance>( GetMesh()->GetAnimInstance() );
+	//// 2. PlayerFireAnimation를 호출하고싶다.
+	//anim->PlayFireAnimation();
+
+
+
+	//// - 카메라위치에서 카메라 앞방향으로
+	//FHitResult OutHit;
+	//FVector Start = FollowCamera->GetComponentLocation();
+	//FVector End = Start + FollowCamera->GetForwardVector() * 100000;
+	//FCollisionQueryParams Params;
+	//Params.AddIgnoredActor( this );
+	//// 바라보고
+	//bool bHit = GetWorld()->LineTraceSingleByChannel( OutHit , Start , End , ECollisionChannel::ECC_Visibility , Params );
+
+	//// 만약 부딪힌곳이 있다면 
+	//if (bHit)
+	//{
+	//	// 그곳에 폭발VFX를 배치하고싶다.
+	//	UGameplayStatics::SpawnEmitterAtLocation( GetWorld() , ExplosionVFXFactory , OutHit.ImpactPoint );
+
+	//	// 만약 부딪힌 상대방이 ANetTPSCDCharacter라면
+	//	// TakeDamage로 데미지를 1점 주고싶다.
+	//	auto otherPlayer = Cast<ANetTPSCDCharacter>( OutHit.GetActor() );
+	//	if (otherPlayer)
+	//	{
+	//		otherPlayer->TakeDamage( 1 );
+	//	}
+	//}
+}
+
+void ANetTPSCDCharacter::ServerFire_Implementation()
+{
+	// - 카메라위치에서 카메라 앞방향으로
+	FHitResult OutHit;
+	FVector Start = FollowCamera->GetComponentLocation();
+	FVector End = Start + FollowCamera->GetForwardVector() * 100000;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor( this );
+	// 바라보고
+	bool bHit = GetWorld()->LineTraceSingleByChannel( OutHit , Start , End , ECollisionChannel::ECC_Visibility , Params );
+
 	// 1개 차감하고
-	bulletCount--;
+	bulletCount--;// 해킹방지를 위해 서버에서 구현
+
+	MultiFire( bHit , OutHit ); 
+}
+
+void ANetTPSCDCharacter::MultiFire_Implementation( bool bHit , const FHitResult& hitinfo )
+{
+
+
 	// 총알UI를 갱신하고싶다.
 	if (mainUI)
 	{
@@ -263,24 +325,15 @@ void ANetTPSCDCharacter::Fire( const FInputActionValue& Value )
 	// 2. PlayerFireAnimation를 호출하고싶다.
 	anim->PlayFireAnimation();
 
-	// - 카메라위치에서 카메라 앞방향으로
-	FHitResult OutHit;
-	FVector Start = FollowCamera->GetComponentLocation();
-	FVector End = Start + FollowCamera->GetForwardVector() * 100000;
-	FCollisionQueryParams Params;
-	Params.AddIgnoredActor( this );
-	// 바라보고
-	bool bHit = GetWorld()->LineTraceSingleByChannel( OutHit , Start , End , ECollisionChannel::ECC_Visibility , Params );
-
 	// 만약 부딪힌곳이 있다면 
 	if (bHit)
 	{
 		// 그곳에 폭발VFX를 배치하고싶다.
-		UGameplayStatics::SpawnEmitterAtLocation( GetWorld() , ExplosionVFXFactory , OutHit.ImpactPoint );
+		UGameplayStatics::SpawnEmitterAtLocation( GetWorld() , ExplosionVFXFactory , hitinfo.ImpactPoint );
 
 		// 만약 부딪힌 상대방이 ANetTPSCDCharacter라면
 		// TakeDamage로 데미지를 1점 주고싶다.
-		auto otherPlayer = Cast<ANetTPSCDCharacter>( OutHit.GetActor() );
+		auto otherPlayer = Cast<ANetTPSCDCharacter>( hitinfo.GetActor() );
 		if (otherPlayer)
 		{
 			otherPlayer->TakeDamage( 1 );
@@ -288,21 +341,23 @@ void ANetTPSCDCharacter::Fire( const FInputActionValue& Value )
 	}
 }
 
+
 void ANetTPSCDCharacter::Reload(const FInputActionValue& Value)
 {
 	// 만약 재장전 중이라면 함수를 바로 종료
 	if (isReload)
 		return;
 
-	isReload = true;
-	// 리로드 애니메이션을 재생.
-	auto anim = Cast<UNetPlayerAnimInstance>( GetMesh()->GetAnimInstance() );
-	anim->PlayReloadAnimation();
+	ServerReload();
+	//isReload = true;
+	//// 리로드 애니메이션을 재생.
+	//auto anim = Cast<UNetPlayerAnimInstance>( GetMesh()->GetAnimInstance() );
+	//anim->PlayReloadAnimation();
 }
 
 void ANetTPSCDCharacter::InitAmmo()
 {
-	bulletCount = maxBulletCount;
+//	bulletCount = maxBulletCount; 해킹방지로 서보로 옮기쟈
 	if (mainUI)
 	{
 		mainUI->ReloadBulletUI( maxBulletCount );
@@ -435,9 +490,36 @@ void ANetTPSCDCharacter::Look( const FInputActionValue& Value )
 
 }
 
+
+void ANetTPSCDCharacter::ServerReload_Implementation()
+{
+	MultiReload();
+}
+
+void ANetTPSCDCharacter::MultiReload_Implementation()
+{
+	isReload = true;
+	// 리로드 애니메이션을 재생.
+	auto anim = Cast<UNetPlayerAnimInstance>( GetMesh()->GetAnimInstance() );
+	anim->PlayReloadAnimation();
+}
+
+void ANetTPSCDCharacter::ServerInitAmmo_Implementation()
+{
+	bulletCount = maxBulletCount;
+	MultiInitAmmo();
+	
+}
+
+void ANetTPSCDCharacter::MultiInitAmmo_Implementation()
+{
+	InitAmmo();
+}
+
 void ANetTPSCDCharacter::GetLifetimeReplicatedProps( TArray<FLifetimeProperty>& OutLifetimeProps ) const
 {
 	Super::GetLifetimeReplicatedProps( OutLifetimeProps );
 
 	DOREPLIFETIME( ANetTPSCDCharacter , bHasPistol );
+	DOREPLIFETIME( ANetTPSCDCharacter , bulletCount );
 }
