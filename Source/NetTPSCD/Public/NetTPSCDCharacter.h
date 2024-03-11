@@ -81,7 +81,7 @@ protected:
 	void DropPistol(const FInputActionValue& Value);
 
 public:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	UPROPERTY(Replicated)
 	bool bHasPistol = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
@@ -168,7 +168,27 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	bool bDie = false;
 
+
+	// Network --------------------------------------------------
 	void PrintNetLog();
 
+	//클라2서버 손에 붙여 주세용(총액터의 포인터)
+	UFUNCTION(Server, Reliable)
+	void ServerAttachPistol(AActor* pistol ); //요청
+//	void ServerAttachPistol_Implementation( AActor* pistol ); // 응답  _ 자동생성
+
+	//서버 2멀티 손에 붙이세요(총액터의 포인터)
+	UFUNCTION(NetMulticast, Reliable)
+	void MultiAttachPistol( AActor* pistol );
+
+	//손에서 총을 놓고싶다.
+	//클라2서버 : 총을 놓아주세요 (총액의 포인터)
+	UFUNCTION( Server , Reliable )   //WithValidation 추가해서 보안 효과 추가 가능
+	void ServerDetachPistol( AActor* pistol );
+	//서버2멀티 모두 총을 놓으세요 (총액의 포인터)
+	UFUNCTION( NetMulticast , Reliable )	//WithValidation 추가해서 보안 효과 추가 가능
+	void MultiDetachPistol( AActor* pistol );
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };
 
