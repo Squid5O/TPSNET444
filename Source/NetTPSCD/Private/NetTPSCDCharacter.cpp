@@ -97,21 +97,44 @@ void ANetTPSCDCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	PrintNetLog();
+	//PrintNetLog();
+
+	//hpUI를 빌보드 처리 하고 싶다.
+	if(hpUIComp && hpUIComp->GetVisibleFlag())
+	{
+		auto cam = UGameplayStatics::GetPlayerCameraManager( GetWorld() , 0 );
+//		auto cam = GetWorld()->GetFirstPlayerController()->PlayerCameraManager;
+		FVector dir = cam->GetCameraLocation() - hpUIComp->GetComponentLocation();
+
+		hpUIComp->SetWorldRotation( dir.GetSafeNormal2D().ToOrientationRotator() );
+	}
+
 }
 
 void ANetTPSCDCharacter::InitUI()
 {
-	// 태어날 때 hpUI를 가져오고싶다.
-	hpUI = Cast<UHPBarWidget>( hpUIComp->GetWidget() );
 
+	if (false == IsLocallyControlled())
+	{
+		return;
+	}
+	// 태어날 때 hpUI를 가져오고싶다.
+	if(nullptr==hpUI)
+	{
+	hpUI = Cast<UHPBarWidget>( hpUIComp->GetWidget() );
+	}
 	// 컨트롤러가 PlayerController가 아니라면 함수를 바로 종료
 	// 즉, mainUI를 생성하지 않겠다.
-	auto pc = Cast<APlayerController>(GetController());
-	if (nullptr == pc)
-		return;
+	auto pc = Cast<APlayerController>(Controller );
 
+	if (nullptr ==pc)
+	{
+		return;
+	}
 	UE_LOG( LogTemp , Warning , TEXT( "ANetTPSCDCharacter::BeginPlay" ) );
+
+	//mainUI를 생성한다면 hpUIComp를 비활성하고 싶다.
+	hpUIComp->SetVisibility( false );
 
 	// MainUI를 생성해서 기억하고싶다.
 	mainUI = CreateWidget<UMainUI>( GetWorld() , mainUIFactory );
@@ -304,15 +327,27 @@ void ANetTPSCDCharacter::ServerFire_Implementation()
 	bool bHit = GetWorld()->LineTraceSingleByChannel( OutHit , Start , End , ECollisionChannel::ECC_Visibility , Params );
 
 	// 1개 차감하고
-	bulletCount--;// 해킹방지를 위해 서버에서 구현
+//	bulletCount--;// 해킹방지를 위해 서버에서 구현
 
-	MultiFire( bHit , OutHit ); 
+		// 만약 부딪힌 상대방이 ANetTPSCDCharacter라면
+		// TakeDamage로 데미지를 1점 주고싶다.
+	if (bHit)
+	{
+
+		auto otherPlayer = Cast<ANetTPSCDCharacter>( OutHit.GetActor() );
+		if (otherPlayer)
+		{
+			otherPlayer->TakeDamage( 1 );
+		}
+	}
+
+	MultiFire( bHit , OutHit, bulletCount - 1 ); 
 }
 
-void ANetTPSCDCharacter::MultiFire_Implementation( bool bHit , const FHitResult& hitinfo )
+void ANetTPSCDCharacter::MultiFire_Implementation( bool bHit , const FHitResult& hitinfo , int32 newBulletCount )
 {
 
-
+	bulletCount = newBulletCount;
 	// 총알UI를 갱신하고싶다.
 	if (mainUI)
 	{
@@ -331,13 +366,7 @@ void ANetTPSCDCharacter::MultiFire_Implementation( bool bHit , const FHitResult&
 		// 그곳에 폭발VFX를 배치하고싶다.
 		UGameplayStatics::SpawnEmitterAtLocation( GetWorld() , ExplosionVFXFactory , hitinfo.ImpactPoint );
 
-		// 만약 부딪힌 상대방이 ANetTPSCDCharacter라면
-		// TakeDamage로 데미지를 1점 주고싶다.
-		auto otherPlayer = Cast<ANetTPSCDCharacter>( hitinfo.GetActor() );
-		if (otherPlayer)
-		{
-			otherPlayer->TakeDamage( 1 );
-		}
+	
 	}
 }
 
@@ -365,6 +394,21 @@ void ANetTPSCDCharacter::InitAmmo()
 	isReload = false;
 }
 
+void ANetTPSCDCharacter::OnRep_HP()
+{
+	// UI도 반영하고싶다.
+	float newHP = static_cast<float>(hp) / maxHP;
+	if (mainUI) // 내꺼
+	{
+		mainUI->hp = static_cast<float>(hp) / maxHP;
+		mainUI->PlayHitAnim();
+	}
+	else // 니꺼
+	{
+		hpUI->hp = static_cast<float>(hp) / maxHP;
+	}
+}
+
 int32 ANetTPSCDCharacter::GetHP()
 {
 	return hp;
@@ -373,15 +417,8 @@ int32 ANetTPSCDCharacter::GetHP()
 void ANetTPSCDCharacter::SetHP(int32 value)
 {
 	hp = value;
-	// UI도 반영하고싶다.
-	if (mainUI) // 내꺼
-	{
-		mainUI->hp = static_cast<float>(hp) / maxHP;
-	}
-	else // 니꺼
-	{
-		hpUI->hp = static_cast<float>(hp) / maxHP;
-	}
+	OnRep_HP();
+	
 }
 
 void ANetTPSCDCharacter::TakeDamage(int32 damage)
@@ -394,6 +431,8 @@ void ANetTPSCDCharacter::TakeDamage(int32 damage)
 	if (HP <= 0)
 	{
 		bDie = true;
+		//카메라의 Saturation값을 0,0,0,01 로 하고 싶다.
+		FollowCamera->PostProcessSettings.ColorSaturation = FVector4( 0 , 0 , 0 , 1 );
 	}
 
 	/*int32 newHP = FMath::Clamp<int32>( GetHP() - damage , 0 , maxHP );
@@ -522,4 +561,5 @@ void ANetTPSCDCharacter::GetLifetimeReplicatedProps( TArray<FLifetimeProperty>& 
 
 	DOREPLIFETIME( ANetTPSCDCharacter , bHasPistol );
 	DOREPLIFETIME( ANetTPSCDCharacter , bulletCount );
+	DOREPLIFETIME( ANetTPSCDCharacter , hp );
 }

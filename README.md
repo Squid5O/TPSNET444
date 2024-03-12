@@ -62,3 +62,18 @@ bool ANetTPS sa.f13432q520
 해킹방지를 위해 서버에 총알을 넣쟈
 
 UI부르는 위치 바꾸쟈
+
+--03.13
+파라미터 = 매개변수
+아규먼트 = 매개변수의 인자값
+
+static_cast
+
+allow late joining
+always on top
+
+빌보드 = 해당 물체의 앞쪽만 볼 수 있도록 하는 것 
+ㄴ카메라와 UI를 알아야함 
+UI가 카메라 방향으로 회전하게 하면 됨
+
+GetVisibleFlag_  비지블 ㅊ ㅔ크

@@ -40,5 +40,8 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	float hp = 1.0f;
 
+	UPROPERTY(EditDefaultsOnly, meta=(BindWidgetAnim), Transient)
+	class UWidgetAnimation* HitAnime;
 
+	void PlayHitAnim();
 };

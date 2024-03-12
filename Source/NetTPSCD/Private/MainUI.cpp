@@ -48,3 +48,9 @@ void UMainUI::RemoveBulletUI(int32 index)
 	// grid의 index위치의 자식을 제거한다.
 	grid_bullet->RemoveChildAt( index );
 }
+
+void UMainUI::PlayHitAnim()
+{
+	PlayAnimation( HitAnime);
+	
+}
